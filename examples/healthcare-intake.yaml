@@ -1,0 +1,28 @@
+name: Clinical intake note labels
+description: Synthetic training rows from nurse-described intake scenarios
+domain: healthcare
+
+fieldInputs: |
+  Frontline nurses need a model that classifies free-text intake snippets into
+  urgency (routine, urgent, emergent) and suggested routing (triage, callback, ER).
+
+  Provide 8 synthetic patient-intake snippets (no PHI — fully fictional names/ages).
+  Each row should feel like a real nurse handoff: 1-3 sentences, plain language.
+
+engineerPrompt: |
+  Using the field inputs, write:
+  - /work/output/dataset.jsonl with fields: case_id, snippet, urgency, routing, nurse_notes
+  - /work/output/SUMMARY.md with schema documentation and label guidelines
+
+  Keep snippets realistic but obviously synthetic. Balance urgency classes.
+
+dockerImage: node:22-bookworm
+
+output:
+  format: jsonl
+  schema: |
+    case_id (string), snippet (string), urgency (routine|urgent|emergent),
+    routing (triage|callback|ER), nurse_notes (string, optional)
+  artifacts:
+    - output/dataset.jsonl
+    - output/SUMMARY.md

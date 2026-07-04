@@ -1,0 +1,43 @@
+{
+  "name": "field-pipeline",
+  "version": "0.1.0",
+  "description": "Lightweight training-data pipeline: field inputs → Vercel Sandbox + Pi + your LLM → export-ready artifacts",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deboboy/field-pipeline.git"
+  },
+  "keywords": [
+    "training-data",
+    "vercel-sandbox",
+    "pi-coding-agent",
+    "llm",
+    "jsonl",
+    "field-data"
+  ],
+  "bin": {
+    "field-pipeline": "./bin/field-pipeline.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "run": "tsx bin/field-pipeline.ts run",
+    "validate": "tsx bin/field-pipeline.ts validate",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/sandbox": "^2.4.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

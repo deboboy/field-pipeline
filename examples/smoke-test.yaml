@@ -1,0 +1,32 @@
+name: Smoke test — JSONL labels
+description: Minimal end-to-end pipeline run for CI or first-time setup
+domain: construction
+
+fieldInputs: |
+  Generate a tiny training set for residential kitchen remodel progress photos.
+
+  Phases: demo, rough-in, cabinets, final.
+  Format: JSONL with fields image_id, phase, notes, quality_score (1-5).
+  Volume: exactly 5 synthetic examples (no real images needed).
+  Tone: realistic general contractor site notes, short.
+
+engineerPrompt: |
+  Read the field inputs above.
+
+  Create:
+  1. /work/output/dataset.jsonl — exactly 5 JSON lines matching the requested schema
+  2. /work/output/SUMMARY.md — 5-10 lines describing the schema, count, and how to extend the set
+
+  Do not install extra packages. Do not browse the network.
+  Write files only under /work/output, then stop.
+
+dockerImage: node:22-bookworm
+
+output:
+  format: jsonl
+  schema: |
+    image_id (string), phase (enum: demo|rough-in|cabinets|final),
+    notes (string), quality_score (integer 1-5)
+  artifacts:
+    - output/dataset.jsonl
+    - output/SUMMARY.md

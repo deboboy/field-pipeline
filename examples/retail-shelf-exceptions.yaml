@@ -1,0 +1,24 @@
+name: Retail shelf exception reports
+description: Turn stockroom / floor associate notes into structured training rows
+domain: retail
+
+fieldInputs: |
+  Store associates report shelf exceptions in plain text:
+  - out of stock but facing shows product
+  - wrong price tag
+  - damaged packaging
+  - planogram mismatch
+
+  Need 10 synthetic associate messages (1-2 sentences each) with implied store aisle context.
+
+engineerPrompt: |
+  Produce /work/output/dataset.jsonl with:
+  report_id, associate_message, exception_type, aisle_hint, severity (low|medium|high)
+
+  Also write /work/output/SUMMARY.md explaining labels and how to collect real associate input later.
+
+output:
+  format: jsonl
+  artifacts:
+    - output/dataset.jsonl
+    - output/SUMMARY.md

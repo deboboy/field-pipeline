@@ -1,25 +1,43 @@
 import { buildAgentsMd, buildPiPrompt } from "./prompt.js"
-import type { ArtifactEntry, PipelineRunResult, PipelineWorkflow, RunPipelineOptions } from "./types.js"
+import {
+  buildLlmDockerEnvFlags,
+  hasLlmCredentials,
+  llmCredentialHint,
+  resolveLlmRunConfig,
+} from "./llm-env.js"
+import type { ArtifactEntry, LlmSpec, PipelineRunResult, PipelineWorkflow, RunPipelineOptions } from "./types.js"
+import { readFile } from "node:fs/promises"
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`
 }
 
-function resolveLlmEnv(): string {
-  if (process.env.ANTHROPIC_API_KEY) {
-    return `-e ANTHROPIC_API_KEY=${shellQuote(process.env.ANTHROPIC_API_KEY)}`
+function normalizeModelsJson(modelsJson: LlmSpec["modelsJson"]): string {
+  if (!modelsJson) throw new Error("modelsJson is required")
+  if (typeof modelsJson === "string") return modelsJson
+  const payload = "providers" in modelsJson ? modelsJson : { providers: modelsJson }
+  return JSON.stringify(payload, null, 2)
+}
+
+async function resolveModelsJsonContent(workflow: PipelineWorkflow): Promise<string | undefined> {
+  if (workflow.llm?.modelsJson) {
+    return normalizeModelsJson(workflow.llm.modelsJson)
   }
-  if (process.env.OPENAI_API_KEY) {
-    return `-e OPENAI_API_KEY=${shellQuote(process.env.OPENAI_API_KEY)}`
+
+  const path = process.env.FIELD_PIPELINE_PI_MODELS_JSON
+  if (path) {
+    return await readFile(path, "utf8")
   }
-  return ""
+
+  return undefined
 }
 
 /**
  * Run a training-data workflow in a Vercel Sandbox with Docker + Pi.
  *
  * Auth: Vercel OIDC (`vercel link` + `vercel env pull` locally; automatic on Vercel).
- * LLM: set ANTHROPIC_API_KEY or OPENAI_API_KEY (passed into the Pi container).
+ * LLM: any Pi-supported provider — pass API keys / cloud creds via env, or define
+ * open-source endpoints in workflow `llm.modelsJson`. See README.
  */
 export async function runPipeline(
   workflow: PipelineWorkflow,
@@ -65,23 +83,35 @@ export async function runPipeline(
     log("Docker daemon is ready.")
 
     const workDir = "/vercel/sandbox/training"
-    await sandbox.runCommand({ cmd: "mkdir", args: ["-p", workDir, `${workDir}/output`] })
+    const piAgentDir = `${workDir}/.pi/agent`
+    await sandbox.runCommand({ cmd: "mkdir", args: ["-p", workDir, `${workDir}/output`, piAgentDir] })
 
     await sandbox.fs.writeFile(`${workDir}/PROMPT.md`, buildPiPrompt(workflow))
     await sandbox.fs.writeFile(`${workDir}/AGENTS.md`, buildAgentsMd(workflow))
 
+    const modelsJsonContent = await resolveModelsJsonContent(workflow)
+    const llmEnvExtra: Record<string, string> = {}
+    if (modelsJsonContent) {
+      await sandbox.fs.writeFile(`${piAgentDir}/models.json`, modelsJsonContent)
+      llmEnvExtra.PI_CODING_AGENT_DIR = "/work/.pi/agent"
+      log("Wrote Pi models.json for custom / open-source providers.")
+    }
+
     log(`Pulling image ${dockerImage} and starting Pi…`)
 
-    const apiKeyEnv = resolveLlmEnv()
-    if (!apiKeyEnv) {
-      log("Warning: no ANTHROPIC_API_KEY or OPENAI_API_KEY set; Pi may fail to authenticate.")
+    const llmEnvFlags = buildLlmDockerEnvFlags(llmEnvExtra)
+    if (!hasLlmCredentials() && !modelsJsonContent) {
+      log(`Warning: no LLM credentials detected; Pi may fail to authenticate. ${llmCredentialHint()}.`)
     }
+
+    const { args: piModelArgs } = resolveLlmRunConfig(workflow.llm)
+    const piArgs = [...piModelArgs, "-p", '"$(cat /work/PROMPT.md)"'].join(" ")
 
     const containerScript = [
       "set -euo pipefail",
       "npm install -g @mariozechner/pi-coding-agent",
       "mkdir -p /work/output",
-      'pi -p "$(cat /work/PROMPT.md)"',
+      `pi ${piArgs}`,
       "echo '--- OUTPUT TREE ---'",
       "find /work/output -type f | sort",
     ].join(" && ")
@@ -90,12 +120,10 @@ export async function runPipeline(
       "sudo docker run --rm",
       `-v ${workDir}:/work`,
       "-w /work",
-      apiKeyEnv,
+      ...llmEnvFlags,
       dockerImage,
       `bash -lc ${shellQuote(containerScript)}`,
-    ]
-      .filter(Boolean)
-      .join(" ")
+    ].join(" ")
 
     const result = await sandbox.runCommand({ cmd: "sh", args: ["-lc", shellDocker] })
 

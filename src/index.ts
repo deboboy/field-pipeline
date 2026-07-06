@@ -1,6 +1,7 @@
 export type {
   ArtifactEntry,
   ExportManifest,
+  LlmSpec,
   OutputFormat,
   OutputSpec,
   PipelineRunResult,
@@ -11,7 +12,7 @@ export type {
 
 export { buildPiPrompt, buildAgentsMd } from "./prompt.js"
 export { runPipeline } from "./runner.js"
-export { parseWorkflowYaml, pipelineWorkflowSchema, outputSpecSchema } from "./workflow-schema.js"
+export { parseWorkflowYaml, pipelineWorkflowSchema, outputSpecSchema, llmSpecSchema } from "./workflow-schema.js"
 export type { PipelineWorkflowInput } from "./workflow-schema.js"
 export {
   buildExportManifest,

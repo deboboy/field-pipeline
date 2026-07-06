@@ -95,8 +95,11 @@ Usage:
   field-pipeline run <workflow.yaml> [--out .runs]
 
 Environment:
-  VERCEL_OIDC_TOKEN   Vercel Sandbox auth (vercel link && vercel env pull)
-  ANTHROPIC_API_KEY   Pi LLM provider (or OPENAI_API_KEY)
+  VERCEL_OIDC_TOKEN              Vercel Sandbox auth (vercel link && vercel env pull)
+  <Pi provider env vars>         Any Pi-supported LLM credential (see README)
+  FIELD_PIPELINE_LLM_ENV         Extra env var names to forward (comma-separated)
+  FIELD_PIPELINE_PI_MODELS_JSON  Path to Pi models.json for open-source providers
+  PI_MODEL / PI_PROVIDER         Optional default model selection
 
 Examples:
   field-pipeline validate examples/smoke-test.yaml

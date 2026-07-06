@@ -1,6 +1,23 @@
 /** Output format hints for Pi and downstream export. */
 export type OutputFormat = "jsonl" | "csv" | "markdown" | "custom"
 
+/**
+ * Optional Pi LLM configuration for a workflow run.
+ * Use modelsJson for Ollama, vLLM, LM Studio, or any OpenAI-compatible endpoint.
+ * @see https://pi.dev/docs/latest/models
+ */
+export interface LlmSpec {
+  /** Pi provider id (e.g. openrouter, groq, ollama). */
+  provider?: string
+  /** Model id or pattern (e.g. openrouter/qwen/qwen-2.5-coder-32b-instruct). */
+  model?: string
+  /**
+   * Inline Pi models.json content. Provide the full file object or just `{ providers: { ... } }`.
+   * Custom provider apiKey fields can reference env vars passed via FIELD_PIPELINE_LLM_ENV.
+   */
+  modelsJson?: string | Record<string, unknown>
+}
+
 export interface OutputSpec {
   /** Preferred artifact format Pi should produce. */
   format?: OutputFormat
@@ -24,6 +41,7 @@ export interface PipelineWorkflow {
   fieldInputs: string
   engineerPrompt: string
   dockerImage?: string
+  llm?: LlmSpec
   output?: OutputSpec
 }
 

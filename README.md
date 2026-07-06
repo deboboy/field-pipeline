@@ -51,7 +51,21 @@ Export manifest → your trainer (HF, OpenAI, custom)
 
 - Node.js 20+
 - A [Vercel](https://vercel.com) project linked for Sandbox OIDC
-- An LLM API key for Pi: `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
+- **LLM access for [Pi](https://pi.dev/docs/latest/providers)** — any provider you choose; not limited to Anthropic or OpenAI
+
+Pi supports hosted APIs, cloud inference (AWS Bedrock, Vertex, Azure), gateways (OpenRouter, Vercel AI Gateway), and **open-source / self-hosted** models via `models.json` (Ollama, vLLM, LM Studio, etc.).
+
+Pick one approach:
+
+| Approach | What to configure |
+|----------|-------------------|
+| **Hosted API** | Export the provider's env var before running (e.g. `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `HF_TOKEN`) |
+| **Anthropic / OpenAI** | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (still supported) |
+| **Cloud** | AWS, GCP, or Azure credentials per [Pi cloud providers](https://pi.dev/docs/latest/providers#cloud-providers) |
+| **Open-source / custom** | Inline `llm.modelsJson` in workflow YAML, or `FIELD_PIPELINE_PI_MODELS_JSON` pointing to a local `models.json` |
+| **Other env vars** | Comma-separated names in `FIELD_PIPELINE_LLM_ENV` (for keys referenced in `models.json`, e.g. `$MY_VLLM_KEY`) |
+
+Optionally set `PI_MODEL` / `PI_PROVIDER` (or workflow `llm.model` / `llm.provider`) to pin the model.
 
 ### Install
 
@@ -66,7 +80,14 @@ pnpm install   # or npm install
 ```bash
 vercel link
 vercel env pull   # writes VERCEL_OIDC_TOKEN (~12h lifetime)
-export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY
+
+# Example: OpenRouter (any model on the router)
+export OPENROUTER_API_KEY=sk-or-...
+export PI_MODEL=openrouter/anthropic/claude-sonnet-4
+
+# Or Anthropic / OpenAI directly
+# export ANTHROPIC_API_KEY=sk-ant-...
+# export OPENAI_API_KEY=sk-...
 ```
 
 On Vercel deployments, OIDC is automatic.
@@ -103,6 +124,22 @@ engineerPrompt: |
   Write /work/output/SUMMARY.md with …
 
 dockerImage: node:22-bookworm   # optional
+
+# Optional — any Pi provider / model (hosted, gateway, or open-source)
+llm:
+  provider: openrouter
+  model: openrouter/qwen/qwen-2.5-coder-32b-instruct
+  # modelsJson:               # for Ollama, vLLM, LM Studio, etc.
+  #   providers:
+  #     ollama:
+  #       baseUrl: http://host.docker.internal:11434/v1
+  #       api: openai-completions
+  #       apiKey: ollama
+  #       compat:
+  #         supportsDeveloperRole: false
+  #         supportsReasoningEffort: false
+  #       models:
+  #         - id: llama3.1:8b
 
 output:
   format: jsonl                 # jsonl | csv | markdown | custom
@@ -164,8 +201,13 @@ Artifact **bytes** live in the sandbox filesystem at `/work/output`. For v0, cop
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `VERCEL_OIDC_TOKEN` | Local dev | From `vercel env pull`; automatic on Vercel |
-| `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` | Yes | Passed into Pi container |
+| Pi provider keys | Yes* | Any [Pi-supported](https://pi.dev/docs/latest/providers) credential env var is forwarded into the container (`OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, AWS/GCP/Azure vars, etc.) |
+| `FIELD_PIPELINE_LLM_ENV` | No | Extra comma-separated env var names to forward (for custom `models.json` keys) |
+| `FIELD_PIPELINE_PI_MODELS_JSON` | No | Path to a local Pi `models.json` for open-source / custom providers |
+| `PI_MODEL` / `PI_PROVIDER` | No | Default Pi model selection; overridable per workflow via `llm.model` / `llm.provider` |
 | `VERCEL_TOKEN` + team/project IDs | External CI only | Alternative to OIDC |
+
+\* Required unless `llm.modelsJson` defines providers with inline keys or keyless local endpoints (e.g. Ollama).
 
 ---
 

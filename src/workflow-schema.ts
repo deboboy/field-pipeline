@@ -1,5 +1,11 @@
 import { z } from "zod"
 
+export const llmSpecSchema = z.object({
+  provider: z.string().min(1).max(100).optional(),
+  model: z.string().min(1).max(200).optional(),
+  modelsJson: z.union([z.string().min(1).max(50000), z.record(z.unknown())]).optional(),
+})
+
 export const outputSpecSchema = z.object({
   format: z.enum(["jsonl", "csv", "markdown", "custom"]).optional(),
   schema: z.string().optional(),
@@ -13,6 +19,7 @@ export const pipelineWorkflowSchema = z.object({
   fieldInputs: z.string().min(1).max(50000),
   engineerPrompt: z.string().min(1).max(50000),
   dockerImage: z.string().min(1).max(200).optional().default("node:22-bookworm"),
+  llm: llmSpecSchema.optional(),
   output: outputSpecSchema.optional(),
 })
 

@@ -53,15 +53,20 @@ export function toOpenAiFineTuneEnvelope(manifest: ExportManifest): {
     version: "0.1",
     manifest,
     notes:
-      "Copy dataset.jsonl from sandbox /work/output into your fine-tune upload. " +
-      "This envelope is metadata only; artifact bytes live in the sandbox filesystem.",
+      "Upload the dataset artifact from localPath in the manifest. " +
+      "When run with --out, artifact bytes are downloaded alongside the manifest.",
   }
 }
 
 /** Hugging Face dataset card stub from a completed run. */
 export function toHuggingFaceDatasetCard(manifest: ExportManifest): string {
   const { workflow, run, artifacts, summary } = manifest
-  const artifactList = artifacts.map((a: { path: string; format?: OutputFormat }) => `- \`${a.path}\` (${a.format ?? "unknown"})`).join("\n")
+  const artifactList = artifacts
+    .map((a: { path: string; localPath?: string; format?: OutputFormat }) => {
+      const location = a.localPath ? `\`${a.localPath}\`` : `\`${a.path}\` (sandbox)`
+      return `- ${location} (${a.format ?? "unknown"})`
+    })
+    .join("\n")
 
   return [
     "---",
@@ -90,7 +95,7 @@ export function toHuggingFaceDatasetCard(manifest: ExportManifest): string {
     "",
     "## Upload",
     "",
-    "1. Retrieve files from the sandbox output directory",
+    "1. Use the downloaded artifact files from `--out` (when present)",
     "2. Upload to Hugging Face Hub as a dataset",
     "3. Point your training job at the JSONL/CSV paths",
   ]

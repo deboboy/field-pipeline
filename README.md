@@ -23,7 +23,7 @@ Most training-data workflows are built by engineers guessing what frontline work
 
 1. **Field-sourced, not engineer-sourced** — Capture requirements from people who actually do the work; Pi handles structuring and generation.
 2. **Lightweight but fast** — One microVM, Docker, Pi print mode. Smoke tests complete in ~1–2 minutes.
-3. **Flexible export** — Declare output format in workflow YAML; get manifests and dataset-card stubs for downstream pipelines.
+3. **Flexible export** — Declare output format in workflow YAML; `--out` downloads dataset bytes plus manifest and dataset-card stubs for downstream pipelines.
 
 ---
 
@@ -40,7 +40,7 @@ Vercel Sandbox → Docker → Pi (-p prompt)
         ↓
 /work/output/*  +  SUMMARY.md
         ↓
-Export manifest → your trainer (HF, OpenAI, custom)
+--out downloads bytes + manifest → your trainer (HF, OpenAI, custom)
 ```
 
 ---
@@ -163,12 +163,15 @@ import {
   toHuggingFaceDatasetCard,
 } from "field-pipeline"
 
-const result = await runPipeline({
-  name: "Smoke test",
-  fieldInputs: "…",
-  engineerPrompt: "…",
-  output: { format: "jsonl" },
-})
+const result = await runPipeline(
+  {
+    name: "Smoke test",
+    fieldInputs: "…",
+    engineerPrompt: "…",
+    output: { format: "jsonl" },
+  },
+  { outDir: ".runs" }
+)
 
 const manifest = buildExportManifest(workflow, result)
 const card = toHuggingFaceDatasetCard(manifest)
@@ -178,15 +181,37 @@ const card = toHuggingFaceDatasetCard(manifest)
 
 ## Export model
 
-After a run, use `--out` to write:
+field-pipeline’s promise is **field inputs → export-ready training artifacts**. With `--out`, a run completes that loop on your machine: Pi writes files in the sandbox, and field-pipeline pulls the bytes down before the ephemeral VM is torn down.
+
+### Why this matters
+
+Without local artifact bytes, the pipeline stops one step short. You get manifests, dataset cards, and logs — but `dataset.jsonl`, `SUMMARY.md`, and other files stay in the sandbox at `/work/output` until you manually retrieve them.
+
+For an AI engineer, that gap is the main friction:
+
+- You can’t drop output straight into a fine-tune upload, Hugging Face dataset, or eval harness
+- You’re left parsing logs or doing manual sandbox retrieval
+- Every downstream step (train, eval, version, diff) depends on having real files on disk
+
+`--out` turns field-pipeline from a metadata generator into a **training-data generator**.
+
+### What `--out` writes
+
+After a run:
+
+```bash
+field-pipeline run examples/smoke-test.yaml --out .runs
+```
 
 | File | Purpose |
 |------|---------|
-| `*.manifest.json` | Portable metadata: workflow, run, artifact paths, export hints |
+| `output/dataset.jsonl` | Training artifact bytes (and any other Pi output files) |
+| `output/SUMMARY.md` | Run summary from Pi |
+| `*.manifest.json` | Portable metadata: workflow, run, artifact paths, local paths, export hints |
 | `*.dataset-card.md` | Hugging Face dataset card stub |
 | `*.logs.txt` | Full sandbox log |
 
-Artifact **bytes** live in the sandbox filesystem at `/work/output`. For v0, copy them from logs or extend with sandbox file download. The manifest tells your training pipeline what to expect.
+Artifact paths in the manifest include `localPath` when downloaded, so importers can point directly at files on disk.
 
 **Suggested importers**
 
@@ -219,7 +244,7 @@ This repo is the **open-source core** extracted from the training-data pipeline 
 
 ## Roadmap
 
-- [ ] Pull artifact bytes from sandbox to local `--out` directory
+- [x] Pull artifact bytes from sandbox to local `--out` directory
 - [ ] CSV / Parquet export helpers
 - [ ] GitHub Action for scheduled workflow runs
 - [ ] Webhook adapter for field-input collection apps

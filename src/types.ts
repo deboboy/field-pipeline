@@ -48,7 +48,10 @@ export interface PipelineWorkflow {
 export type PipelineRunStatus = "provisioning" | "running" | "completed" | "failed"
 
 export interface ArtifactEntry {
+  /** Path relative to the sandbox work directory (e.g. `output/dataset.jsonl`). */
   path: string
+  /** Local filesystem path after `--out` download, when available. */
+  localPath?: string
   format?: OutputFormat
 }
 
@@ -73,6 +76,8 @@ export interface RunPipelineOptions {
   runtime?: "node24" | "node22" | "node26" | "python3.13"
   /** Called as log lines are produced. */
   onLog?: (line: string) => void
+  /** Local directory to download sandbox output artifacts into. */
+  outDir?: string
   /** Stop sandbox after run. Default: true */
   stopSandbox?: boolean
 }

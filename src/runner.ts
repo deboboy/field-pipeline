@@ -1,11 +1,12 @@
 import { buildAgentsMd, buildPiPrompt } from "./prompt.js"
+import { downloadSandboxArtifacts, parseArtifactTree } from "./artifacts.js"
 import {
   buildLlmDockerEnvFlags,
   hasLlmCredentials,
   llmCredentialHint,
   resolveLlmRunConfig,
 } from "./llm-env.js"
-import type { ArtifactEntry, LlmSpec, PipelineRunResult, PipelineWorkflow, RunPipelineOptions } from "./types.js"
+import type { LlmSpec, PipelineRunResult, PipelineWorkflow, RunPipelineOptions } from "./types.js"
 import { readFile } from "node:fs/promises"
 
 function shellQuote(value: string): string {
@@ -140,7 +141,20 @@ export async function runPipeline(
       summary = stdout.slice(0, 4000) || "Run finished without SUMMARY.md"
     }
 
-    const artifacts = parseArtifactTree(stdout, workflow.output?.format)
+    const parsedArtifacts = parseArtifactTree(stdout, workflow.output?.format)
+    let artifacts = parsedArtifacts
+
+    if (options.outDir) {
+      log(`Downloading artifacts to ${options.outDir}…`)
+      artifacts = await downloadSandboxArtifacts({
+        sandbox,
+        workDir,
+        outDir: options.outDir,
+        parsedArtifacts,
+        defaultFormat: workflow.output?.format,
+        onLog: log,
+      })
+    }
 
     if (stopSandbox) {
       try {
@@ -191,27 +205,4 @@ export async function runPipeline(
       completedAt: new Date().toISOString(),
     }
   }
-}
-
-function parseArtifactTree(stdout: string, defaultFormat?: ArtifactEntry["format"]): ArtifactEntry[] {
-  const marker = "--- OUTPUT TREE ---"
-  const idx = stdout.indexOf(marker)
-  if (idx === -1) return []
-
-  return stdout
-    .slice(idx + marker.length)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("/work/output/") || line.includes("/output/"))
-    .map((path) => ({
-      path: path.replace(/^\/work\//, ""),
-      format: inferFormat(path) ?? defaultFormat,
-    }))
-}
-
-function inferFormat(path: string): ArtifactEntry["format"] | undefined {
-  if (path.endsWith(".jsonl")) return "jsonl"
-  if (path.endsWith(".csv")) return "csv"
-  if (path.endsWith(".md")) return "markdown"
-  return undefined
 }

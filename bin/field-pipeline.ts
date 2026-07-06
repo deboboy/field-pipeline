@@ -36,6 +36,7 @@ async function main() {
 
     const result = await runPipeline(workflow, {
       onLog: (line) => console.log(line),
+      outDir,
     })
 
     console.log("")
@@ -63,6 +64,9 @@ async function main() {
       console.log(`Wrote ${manifestPath}`)
       console.log(`Wrote ${cardPath}`)
       console.log(`Wrote ${logsPath}`)
+      for (const artifact of result.artifacts) {
+        if (artifact.localPath) console.log(`Wrote ${artifact.localPath}`)
+      }
     }
 
     process.exit(result.status === "completed" ? 0 : 1)
